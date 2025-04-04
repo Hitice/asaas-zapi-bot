@@ -1,35 +1,62 @@
-const express = require('express');
-const axios = require('axios');
-require('dotenv').config();
-const app = express();
-app.use(express.json());
-
-app.post('/whatsapp', async (req, res) => {
-  const { phone, name } = req.body;
-  const response = await axios.post(
-    `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`,
-    {
-      phone: phone,
-      message: `Olá, ${name}! Clique no link para gerar sua cobrança.`
-    }
-  );
-  res.send(response.data);
-});
-
 app.post('/webhook/asaas', async (req, res) => {
   const event = req.body;
+
   if (event.event === 'PAYMENT_RECEIVED') {
-    const phone = event.payment.customer.phone;
-    await axios.post(
-      `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`,
-      {
-        phone: phone,
-        message: `✅ Pagamento confirmado!
-Consulta liberada.`
-      }
-    );
+    try {
+      const customerId = event.payment.customer;
+
+      // Buscar dados do cliente pelo ID
+      const customerResponse = await axios.get(
+        `https://sandbox.asaas.com/api/v3/customers/${customerId}`,
+        {
+          headers: { Authorization: `Bearer ${process.env.ASAAS_API_KEY}` }
+        }
+      );
+
+      const phone = customerResponse.data.phone;
+
+      await axios.post(
+        `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`,
+        {
+          phone: phone,
+          message: `✅ Pagamento confirmado! Consulta liberada.`
+        }
+      );
+    } catch (error) {
+      console.error('Erro ao buscar cliente:', error.response?.data || error.message);
+    }
   }
+
   res.sendStatus(200);
 });
+app.post('/webhook/asaas', async (req, res) => {
+  const event = req.body;
 
-app.listen(3000, () => console.log('Servidor rodando na porta 3000'));
+  if (event.event === 'PAYMENT_RECEIVED') {
+    try {
+      const customerId = event.payment.customer;
+
+      // Buscar dados do cliente pelo ID
+      const customerResponse = await axios.get(
+        `https://sandbox.asaas.com/api/v3/customers/${customerId}`,
+        {
+          headers: { Authorization: `Bearer ${process.env.ASAAS_API_KEY}` }
+        }
+      );
+
+      const phone = customerResponse.data.phone;
+
+      await axios.post(
+        `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`,
+        {
+          phone: phone,
+          message: `✅ Pagamento confirmado! Consulta liberada.`
+        }
+      );
+    } catch (error) {
+      console.error('Erro ao buscar cliente:', error.response?.data || error.message);
+    }
+  }
+
+  res.sendStatus(200);
+});
