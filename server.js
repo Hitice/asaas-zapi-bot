@@ -5,6 +5,8 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
+const PORT = process.env.PORT || 3000;
+
 // Rota para envio manual via POST
 app.post('/whatsapp', async (req, res) => {
   const { phone, name } = req.body;
@@ -19,7 +21,7 @@ app.post('/whatsapp', async (req, res) => {
     );
     res.send(response.data);
   } catch (error) {
-    console.error('Erro ao enviar mensagem:', error.message);
+    console.error('Erro ao enviar mensagem:', error.response?.data || error.message);
     res.status(500).send({ error: 'Erro ao enviar mensagem' });
   }
 });
@@ -30,7 +32,12 @@ app.post('/webhook/asaas', async (req, res) => {
 
   if (event.event === 'PAYMENT_RECEIVED') {
     try {
-      const phone = event.payment.customer.phone;
+      const phone = event.payment?.customer?.phone || null;
+
+      if (!phone) {
+        console.error('Telefone não encontrado no evento do webhook.');
+        return res.sendStatus(400);
+      }
 
       await axios.post(
         `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`,
@@ -40,7 +47,7 @@ app.post('/webhook/asaas', async (req, res) => {
         }
       );
     } catch (error) {
-      console.error('Erro ao processar webhook do Asaas:', error.message);
+      console.error('Erro ao processar webhook do Asaas:', error.response?.data || error.message);
     }
   }
 
@@ -48,6 +55,6 @@ app.post('/webhook/asaas', async (req, res) => {
 });
 
 // Inicialização do servidor
-app.listen(3000, () => {
-  console.log('Servidor rodando na porta 3000');
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
