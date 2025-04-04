@@ -1,13 +1,19 @@
 {
   "name": "asaas-zapi-bot",
   "version": "1.0.0",
+  "description": "Integração com Asaas e Z-API para automação de pagamentos e notificações via WhatsApp.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "axios": "^1.5.1",
     "dotenv": "^16.3.1",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
   }
 }
