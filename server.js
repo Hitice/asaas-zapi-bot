@@ -1,62 +1,53 @@
+const express = require('express');
+const axios = require('axios');
+require('dotenv').config();
+
+const app = express();
+app.use(express.json());
+
+// Rota para envio manual via POST
+app.post('/whatsapp', async (req, res) => {
+  const { phone, name } = req.body;
+
+  try {
+    const response = await axios.post(
+      `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`,
+      {
+        phone: phone,
+        message: `Olá, ${name}! Clique no link para gerar sua cobrança.`
+      }
+    );
+    res.send(response.data);
+  } catch (error) {
+    console.error('Erro ao enviar mensagem:', error.message);
+    res.status(500).send({ error: 'Erro ao enviar mensagem' });
+  }
+});
+
+// Webhook do Asaas
 app.post('/webhook/asaas', async (req, res) => {
   const event = req.body;
 
   if (event.event === 'PAYMENT_RECEIVED') {
     try {
-      const customerId = event.payment.customer;
-
-      // Buscar dados do cliente pelo ID
-      const customerResponse = await axios.get(
-        `https://sandbox.asaas.com/api/v3/customers/${customerId}`,
-        {
-          headers: { Authorization: `Bearer ${process.env.ASAAS_API_KEY}` }
-        }
-      );
-
-      const phone = customerResponse.data.phone;
+      const phone = event.payment.customer.phone;
 
       await axios.post(
         `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`,
         {
           phone: phone,
-          message: `✅ Pagamento confirmado! Consulta liberada.`
+          message: `✅ Pagamento confirmado!\nConsulta liberada.`
         }
       );
     } catch (error) {
-      console.error('Erro ao buscar cliente:', error.response?.data || error.message);
+      console.error('Erro ao processar webhook do Asaas:', error.message);
     }
   }
 
   res.sendStatus(200);
 });
-app.post('/webhook/asaas', async (req, res) => {
-  const event = req.body;
 
-  if (event.event === 'PAYMENT_RECEIVED') {
-    try {
-      const customerId = event.payment.customer;
-
-      // Buscar dados do cliente pelo ID
-      const customerResponse = await axios.get(
-        `https://sandbox.asaas.com/api/v3/customers/${customerId}`,
-        {
-          headers: { Authorization: `Bearer ${process.env.ASAAS_API_KEY}` }
-        }
-      );
-
-      const phone = customerResponse.data.phone;
-
-      await axios.post(
-        `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`,
-        {
-          phone: phone,
-          message: `✅ Pagamento confirmado! Consulta liberada.`
-        }
-      );
-    } catch (error) {
-      console.error('Erro ao buscar cliente:', error.response?.data || error.message);
-    }
-  }
-
-  res.sendStatus(200);
+// Inicialização do servidor
+app.listen(3000, () => {
+  console.log('Servidor rodando na porta 3000');
 });
