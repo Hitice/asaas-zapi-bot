@@ -5,7 +5,7 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
-// Envio manual via WhatsApp
+// Enviar mensagem manual via WhatsApp
 app.post('/whatsapp', async (req, res) => {
   const { phone, name } = req.body;
 
@@ -14,53 +14,56 @@ app.post('/whatsapp', async (req, res) => {
   }
 
   try {
-    const response = await axios.post(
-      `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`,
-      {
-        phone,
-        message: `Olá, ${name}! Clique no link para gerar sua cobrança.`
-      }
-    );
-    console.log('Mensagem enviada com sucesso para:', phone);
-    res.json(response.data);
+    const zapiUrl = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`;
+
+    const payload = {
+      phone,
+      message: `Olá, ${name}! Clique no link para gerar sua cobrança.`
+    };
+
+    const { data } = await axios.post(zapiUrl, payload);
+    console.log(`[Z-API] Mensagem enviada para: ${phone}`);
+    res.json(data);
   } catch (error) {
-    console.error('Erro ao enviar mensagem:', error.message);
+    console.error('[Z-API] Erro:', error.response?.data || error.message);
     res.status(500).json({ error: 'Erro ao enviar mensagem via Z-API' });
   }
 });
 
-// Webhook do Asaas
+// Webhook de notificação do Asaas
 app.post('/webhook/asaas', async (req, res) => {
-  const event = req.body;
+  const { event, payment } = req.body;
 
-  if (event.event === 'PAYMENT_RECEIVED') {
-    try {
-      const phone = event.payment?.customer?.phone;
+  if (event !== 'PAYMENT_RECEIVED') {
+    return res.sendStatus(200);
+  }
 
-      if (!phone) {
-        console.warn('Telefone não encontrado no payload do evento.');
-        return res.sendStatus(200);
-      }
+  const phone = payment?.customer?.phone;
 
-      await axios.post(
-        `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`,
-        {
-          phone,
-          message: `✅ Pagamento confirmado!\nConsulta liberada.`
-        }
-      );
+  if (!phone) {
+    console.warn('[Webhook] Telefone não encontrado no payload.');
+    return res.sendStatus(200);
+  }
 
-      console.log('Notificação enviada para:', phone);
-    } catch (error) {
-      console.error('Erro no webhook do Asaas:', error.message);
-    }
+  try {
+    const zapiUrl = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE_ID}/token/${process.env.ZAPI_TOKEN}/send-text`;
+
+    const payload = {
+      phone,
+      message: `✅ Pagamento confirmado!\nConsulta liberada.`
+    };
+
+    await axios.post(zapiUrl, payload);
+    console.log(`[Webhook] Notificação enviada para: ${phone}`);
+  } catch (error) {
+    console.error('[Webhook] Erro ao notificar:', error.response?.data || error.message);
   }
 
   res.sendStatus(200);
 });
 
-// Inicializa servidor na porta dinâmica (Railway)
+// Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`Servidor ativo na porta ${PORT}`);
 });
